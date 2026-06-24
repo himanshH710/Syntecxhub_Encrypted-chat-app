@@ -1,12 +1,8 @@
 import socket
-from crypto_utils import KEY, encrypt_message
-print(KEY)
-from crypto_utils import decrypt_message
+import threading
+from crypto_utils import decrypt_message, encrypt_message
 
-server = socket.socket(
-    socket.AF_INET,
-    socket.SOCK_STREAM
-)
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 server.setsockopt(
     socket.SOL_SOCKET,
@@ -14,23 +10,26 @@ server.setsockopt(
     1
 )
 
-server.bind(
-    ("127.0.0.1", 5000)
-)
-
+server.bind(("127.0.0.1", 5000))
 server.listen()
 
-print("Server is waiting...")
-
-client_socket, address = server.accept() 
-
-print(f"Connected by {address}")
-
-import threading
+clients = {}
 
 
-def receive_messages():
+def broadcast(message, sender):
+    for client in clients:
+
+        if client != sender:
+            try:
+                client.send(message)
+            except:
+                pass
+
+
+def handle_client(client_socket,username):
+
     while True:
+
         try:
             encrypted_message = client_socket.recv(4096)
 
@@ -41,48 +40,42 @@ def receive_messages():
                 encrypted_message
             )
 
-            print(f"\nClient: {message}")
+            print(f"\n[{username}]: {message}")
 
-            if message.lower() == "exit":
-                break
+            formatted_message = f"[{username}] {message}"
+
+            encrypted_message = encrypt_message(
+                formatted_message)
+
+            broadcast(
+                encrypted_message,client_socket
+            )
 
         except:
             break
 
+    if client_socket in clients:
+        del clients[client_socket]
 
-def send_messages():
-    while True:
-        try:
-            reply = input("You: ")
+    print(f"[{username}] disconnected.")
 
-            encrypted_reply = encrypt_message(
-                reply
-            )
-
-            client_socket.send(
-                encrypted_reply
-            )
-
-            if reply.lower() == "exit":
-                break
-
-        except:
-            break
+    client_socket.close()
 
 
-receive_thread = threading.Thread(
-    target=receive_messages
-)
+print("Server is listening...")
 
-send_thread = threading.Thread(
-    target=send_messages
-)
+while True:
 
-receive_thread.start()
-send_thread.start()
+    client_socket, address = server.accept()
+    username = client_socket.recv(1024).decode()
 
-receive_thread.join()
-send_thread.join()
+    print(f"New Client Connected: {address}")
 
-client_socket.close()
-server.close()
+    clients[client_socket] = username
+
+    thread = threading.Thread(
+        target=handle_client,
+        args=(client_socket,username)
+    )
+
+    thread.start()

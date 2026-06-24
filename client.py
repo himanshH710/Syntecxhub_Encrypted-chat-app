@@ -1,45 +1,65 @@
 import socket
-from crypto_utils import KEY, decrypt_message
-print(KEY)
-from crypto_utils import encrypt_message
+import threading
+
+from crypto_utils import (
+    encrypt_message,
+    decrypt_message
+)
 
 client = socket.socket(
     socket.AF_INET,
     socket.SOCK_STREAM
 )
 
+username = input(
+    "Enter Username: "
+)
+
 client.connect(
     ("127.0.0.1", 5000)
 )
 
-import threading
+client.send(
+    username.encode()
+)
 
 
 def send_messages():
+
     while True:
+
         message = input("You: ")
 
-        encrypted_message = encrypt_message(message)
+        encrypted_message = encrypt_message(
+            message
+        )
 
-        client.send(encrypted_message)
+        client.send(
+            encrypted_message
+        )
 
         if message.lower() == "exit":
             break
 
 
 def receive_messages():
+
     while True:
+
         try:
-            encrypted_reply = client.recv(4096)
 
-            if not encrypted_reply:
-                break
-
-            reply = decrypt_message(
-                encrypted_reply
+            encrypted_message = client.recv(
+                4096
             )
 
-            print(f"\nServer: {reply}")
+            if not encrypted_message:
+                break
+
+            message = decrypt_message(
+                encrypted_message
+            )
+
+            print(f"\n{message}")
 
         except:
             break
