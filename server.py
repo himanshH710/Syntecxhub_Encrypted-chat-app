@@ -1,5 +1,6 @@
 import socket
 import threading
+from datetime import datetime
 from crypto_utils import decrypt_message, encrypt_message
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -25,6 +26,27 @@ def broadcast(message, sender):
             except:
                 pass
 
+def log_message(message):
+
+    current_time = datetime.now().strftime(
+        "%H:%M:%S"
+    )
+
+    with open(
+        "chat_history.txt",
+        "a"
+    ) as file:
+
+        file.write(
+            f"[{current_time}] {message}\n"
+        )
+
+def private_message(sender,receiver,message):
+    if receiver in clients:
+        target_socket = clients[receiver]
+        formatted_message = (f"[Private] {sender}: {message}")
+        encrypted_message =encrypt_message(formatted_message)
+        target_socket.send(encrypted_message)
 
 def handle_client(client_socket,username):
 
@@ -43,6 +65,7 @@ def handle_client(client_socket,username):
             print(f"\n[{username}]: {message}")
 
             formatted_message = f"[{username}] {message}"
+            log_message(formatted_message)
 
             encrypted_message = encrypt_message(
                 formatted_message)
@@ -59,6 +82,8 @@ def handle_client(client_socket,username):
 
     print(f"[{username}] disconnected.")
 
+    log_message(f"{username} left the chat")
+
     client_socket.close()
 
 
@@ -72,6 +97,8 @@ while True:
     print(f"New Client Connected: {address}")
 
     clients[client_socket] = username
+
+    log_message(f"{username} joined the chat")
 
     thread = threading.Thread(
         target=handle_client,
